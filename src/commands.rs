@@ -53,10 +53,11 @@ pub async fn rgif(ctx: Context<'_>) -> Result<(), Error> {
         .json()
         .await?;
 
-    let gif_url = response["data"]["data"][0]["file"]["md"]["gif"]["url"]
+    let slug = response["data"]["data"][0]["slug"]
         .as_str()
-        .unwrap_or("no gif found :(")
-        .to_string();
+        .unwrap_or("no gif found :(");
+
+    let gif_url = format!("https://klipy.com/gifs/{}", slug);
 
     ctx.say(gif_url).await?;
 
