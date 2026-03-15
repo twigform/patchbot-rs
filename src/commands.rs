@@ -144,6 +144,18 @@ async fn get_osu_token(client: &reqwest::Client) -> Result<String, Error> {
     Ok(access_token)
 }
 
+fn format_num(n: u64) -> String {
+    let s = n.to_string();
+    let mut formatted = String::new();
+    for (i, c) in s.chars().rev().enumerate() {
+        if i > 0 && i % 3 == 0 {
+            formatted.push(',');
+        }
+        formatted.push(c);
+    }
+    formatted.chars().rev().collect()
+}
+
 #[poise::command(prefix_command)]
 pub async fn osu(
     ctx: Context<'_>,
@@ -176,7 +188,7 @@ pub async fn osu(
 
     let rank = response["statistics"]["global_rank"]
         .as_u64()
-        .map(|r| r.to_string())
+        .map(|r| format_num(r))
         .unwrap_or_else(|| "unranked".to_string());
     let is_online = response["is_online"].as_bool().unwrap_or(false);
     let title = format!("<:osu:1482134509729349812> osu! user: {}", username);
