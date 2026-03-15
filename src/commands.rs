@@ -167,6 +167,13 @@ pub async fn osu(
 
     let username = response["username"].as_str().unwrap_or("no user found :(");
     let uid = response["id"].as_u64().unwrap_or(0);
+
+    if uid == 0 {
+        ctx.send(poise::CreateReply::default().content("osu! user not found... :("))
+            .await?;
+        return Ok(());
+    }
+
     let rank = response["statistics"]["global_rank"]
         .as_u64()
         .map(|r| r.to_string())
