@@ -44,6 +44,11 @@ async fn main() {
             Box::pin(async move {
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
 
+                ctx.set_presence(
+                    Some(serenity::ActivityData::custom("Running >help!")),
+                    serenity::OnlineStatus::Online,
+                );
+
                 Ok(Data {})
             })
         })
