@@ -28,6 +28,7 @@
 
 | Command | Description |
 |---------|-------------|
+| `>help` | Gives a list of commands. (Can also be used for info on a specific command.) |
 | `>ping` | pong :) |
 | `>rgif` | Sends a (kind of) random gif. |
 | `>cat` | Random cat. |
