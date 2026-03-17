@@ -156,7 +156,7 @@ fn format_num(n: u64) -> String {
     formatted.chars().rev().collect()
 }
 
-#[poise::command(prefix_command)]
+#[poise::command(prefix_command, category = "osu!")]
 pub async fn osu(
     ctx: Context<'_>,
     #[description = "osu! user to grab"] o_user: String,
@@ -253,7 +253,7 @@ pub async fn osu(
     Ok(())
 }
 
-#[poise::command(prefix_command)]
+#[poise::command(prefix_command, category = "osu!")]
 pub async fn osur(
     ctx: Context<'_>,
     #[description = "osu! user to grab recent map for"] o_user: String,
