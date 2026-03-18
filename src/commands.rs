@@ -293,7 +293,22 @@ pub async fn osur(
         .as_str()
         .unwrap_or("");
 
-    let rank = score["rank"].as_str().unwrap_or("?");
+    fn grade_2_emoji(rank: &str) -> String {
+        let e_id = match rank {
+            "A" => "1483851816675315854",
+            "B" => "1483851819867443240",
+            "C" => "1483851821620531220",
+            "D" => "1483851822744731798",
+            "S" => "1483851823570878567",
+            "SH" => "1483851824392966224",
+            "SS" => "1483851825349267477",
+            "SSH" => "1483851826452234373",
+            _ => return rank.to_string(),
+        };
+        format!("<:ranking{}:{}>", rank, e_id)
+    }
+
+    let rank = grade_2_emoji(score["rank"].as_str().unwrap_or("?"));
     let pp = score["pp"].as_f64();
     let accuracy = score["accuracy"].as_f64().unwrap_or(0.0) * 100.0;
     let max_combo = score["max_combo"].as_u64().unwrap_or(0);
