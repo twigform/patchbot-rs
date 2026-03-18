@@ -144,13 +144,11 @@ pub async fn osu(
     #[description = "osu! user to grab"] o_user: String,
 ) -> Result<(), Error> {
     ctx.channel_id().broadcast_typing(&ctx.http()).await?;
-
     let client = reqwest::Client::new();
-
     let token = get_osu_token(&client).await?;
 
     let response: serde_json::Value = client
-        .get(format!("https://osu.ppy.sh/api/v2/users/{}/osu", o_user))
+        .get(format!("https://osu.ppy.sh/api/v2/users/{}", o_user))
         .header(USER_AGENT, "patchbot_discord")
         .header("Authorization", format!("Bearer {}", token))
         .header("Accept", "application/json")
@@ -161,12 +159,26 @@ pub async fn osu(
 
     let username = response["username"].as_str().unwrap_or("no user found :(");
     let uid = response["id"].as_u64().unwrap_or(0);
-
     if uid == 0 {
         ctx.send(poise::CreateReply::default().content("osu! user not found... :("))
             .await?;
         return Ok(());
     }
+
+    let playmode = response["playmode"].as_str().unwrap_or("osu");
+
+    let response: serde_json::Value = client
+        .get(format!(
+            "https://osu.ppy.sh/api/v2/users/{}/{}",
+            uid, playmode
+        ))
+        .header(USER_AGENT, "patchbot_discord")
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Accept", "application/json")
+        .send()
+        .await?
+        .json()
+        .await?;
 
     let rank = response["statistics"]["global_rank"]
         .as_u64()
@@ -175,7 +187,7 @@ pub async fn osu(
     let is_online = response["is_online"].as_bool().unwrap_or(false);
     let title = format!("<:osu:1482134509729349812> osu! user: {}", username);
     let pfp = format!("https://a.ppy.sh/{}", uid);
-    let url = format!("https://osu.ppy.sh/users/{}", uid);
+    let url = format!("https://osu.ppy.sh/users/{}/{}", uid, playmode);
     let pp = response["statistics"]["pp"]
         .as_f64()
         .map(|r| format!("{:.2}", r))
@@ -198,8 +210,8 @@ pub async fn osu(
 
     let recent: serde_json::Value = client
         .get(format!(
-            "https://osu.ppy.sh/api/v2/users/{}/scores/recent?limit=1&include_fails=1",
-            uid
+            "https://osu.ppy.sh/api/v2/users/{}/scores/recent?limit=1&include_fails=1&mode={}",
+            uid, playmode
         ))
         .header(USER_AGENT, "patchbot_discord")
         .header("Authorization", format!("Bearer {}", token))
@@ -212,9 +224,7 @@ pub async fn osu(
     let last_played = recent[0]["beatmapset"]["title"]
         .as_str()
         .unwrap_or("nothing recent :(");
-
     let beatmap_url = recent[0]["beatmap"]["url"].as_str().unwrap_or("");
-
     let last_played_str = if beatmap_url.is_empty() {
         last_played.to_string()
     } else {
