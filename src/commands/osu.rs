@@ -1,142 +1,7 @@
+use super::{format_num, get_osu_token};
 use crate::{Context, Error};
-use once_cell::sync::Lazy;
-use poise::builtins::HelpConfiguration;
-use random_word::Lang;
 use reqwest::header::USER_AGENT;
 use serenity::builder::CreateEmbed;
-use tokio::sync::Mutex;
-
-#[poise::command(prefix_command)]
-pub async fn ping(ctx: Context<'_>) -> Result<(), Error> {
-    let response = "pawng";
-    ctx.reply(response).await?;
-    Ok(())
-}
-
-#[poise::command(prefix_command, owners_only, category = "Utility")]
-pub async fn shutdown(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.say("ok bye :(").await?;
-    std::process::exit(0);
-}
-
-#[poise::command(prefix_command)]
-pub async fn rgif(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.channel_id().broadcast_typing(&ctx.http()).await?;
-    let word = random_word::get(Lang::En);
-
-    let client = reqwest::Client::new();
-    let url = format!(
-        "https://api.klipy.com/api/v1/{}/gifs/search?q={}/&per_page=1",
-        std::env::var("KLIPY_API").expect("missing klipy key! please make a .env file in the root of this project and add KLIPY_API=KLIPY API KEY HERE to it!"),
-        word
-    );
-
-    let response: serde_json::Value = client
-        .get(&url)
-        .header(USER_AGENT, "patchbot_discord") // maybe make this a var later
-        .send()
-        .await?
-        .json()
-        .await?;
-
-    let slug = response["data"]["data"][0]["slug"]
-        .as_str()
-        .unwrap_or("no gif found :(");
-
-    let gif_url = format!("https://klipy.com/gifs/{}", slug);
-
-    ctx.reply(gif_url).await?;
-
-    Ok(())
-}
-
-#[poise::command(prefix_command)]
-pub async fn cat(ctx: Context<'_>) -> Result<(), Error> {
-    ctx.channel_id().broadcast_typing(&ctx.http()).await?;
-
-    let client = reqwest::Client::new();
-
-    let response: serde_json::Value = client
-        .get("https://api.thecatapi.com/v1/images/search")
-        .header(USER_AGENT, "patchbot_discord")
-        .send()
-        .await?
-        .json()
-        .await?;
-
-    let cat_url = response[0]["url"].as_str().unwrap_or("no cat found :(");
-
-    ctx.reply(cat_url).await?;
-
-    Ok(())
-}
-
-#[poise::command(prefix_command, category = "Utility")]
-pub async fn help(
-    ctx: Context<'_>,
-    #[description = "Get details for a specific command"]
-    #[rest]
-    mut command: Option<String>,
-) -> Result<(), Error> {
-    if ctx.invoked_command_name() != "help" {
-        command = match command {
-            Some(c) => Some(format!("{} {}", ctx.invoked_command_name(), c)),
-            None => Some(ctx.invoked_command_name().to_string()),
-        };
-    }
-    let extra_text_at_bottom = "\
-Run `>help command` for info on a specific command.";
-
-    let config = HelpConfiguration {
-        extra_text_at_bottom,
-        ..Default::default()
-    };
-    poise::builtins::help(ctx, command.as_deref(), config).await?;
-    Ok(())
-}
-
-static OSU_TOKEN: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-
-async fn get_osu_token(client: &reqwest::Client) -> Result<String, Error> {
-    let mut token = OSU_TOKEN.lock().await;
-    if let Some(t) = token.as_ref() {
-        return Ok(t.clone());
-    }
-
-    let res: serde_json::Value = client
-        .post("https://osu.ppy.sh/oauth/token")
-        .header(USER_AGENT, "patchbot_discord")
-        .json(&serde_json::json!({
-            "client_id": std::env::var("OSU_CLIENT_ID").expect("missing OSU_CLIENT_ID! please make a .env file in the root of this project and add OSU_CLIENT_ID=OSU_CLIENT_ID HERE to it!"),
-            "client_secret": std::env::var("OSU_CLIENT_SECRET").expect("missing OSU_CLIENT_SECRET! please make a .env file in the root of this project and add OSU_CLIENT_SECRET=OSU_CLIENT_SECRET HERE to it!"),
-            "grant_type": "client_credentials",
-            "scope": "public"
-        }))
-        .send()
-        .await?
-        .json()
-        .await?;
-
-    let access_token = res["access_token"]
-        .as_str()
-        .ok_or("failed to get osu token")?
-        .to_string();
-
-    *token = Some(access_token.clone());
-    Ok(access_token)
-}
-
-fn format_num(n: u64) -> String {
-    let s = n.to_string();
-    let mut formatted = String::new();
-    for (i, c) in s.chars().rev().enumerate() {
-        if i > 0 && i % 3 == 0 {
-            formatted.push(',');
-        }
-        formatted.push(c);
-    }
-    formatted.chars().rev().collect()
-}
 
 #[poise::command(prefix_command, category = "osu!")]
 pub async fn osu(
@@ -182,7 +47,7 @@ pub async fn osu(
 
     let rank = response["statistics"]["global_rank"]
         .as_u64()
-        .map(|r| format_num(r))
+        .map(format_num)
         .unwrap_or_else(|| "unranked".to_string());
     let is_online = response["is_online"].as_bool().unwrap_or(false);
     let title = format!("<:osu:1482134509729349812> osu! user: {}", username);
@@ -235,7 +100,7 @@ pub async fn osu(
         .title(&title)
         .url(&url)
         .field("Rank", format!("#{}", &rank), true)
-        .field("PP", format!("{}", &pp), true)
+        .field("PP", &pp, true)
         .field("Status", online_str, false)
         .field("Last played:", &last_played_str, false)
         .color(0xFF66AA)
@@ -401,25 +266,6 @@ pub async fn osur(
     Ok(())
 }
 
-#[poise::command(prefix_command)]
-pub async fn consequence(
-    ctx: Context<'_>,
-    #[description = "User to punish."] user: serenity::model::user::User,
-) -> Result<(), Error> {
-    user.dm(
-        &ctx.http(),
-        serenity::builder::CreateMessage::new().content("Your consequence has been delivered."),
-    )
-    .await?;
-
-    ctx.reply(format!(
-        "Consequence initiated for {}.",
-        user.display_name()
-    ))
-    .await?;
-    Ok(())
-}
-
 #[poise::command(prefix_command, category = "osu!")]
 pub async fn lb(ctx: Context<'_>) -> Result<(), Error> {
     ctx.channel_id().broadcast_typing(&ctx.http()).await?;
@@ -429,9 +275,7 @@ pub async fn lb(ctx: Context<'_>) -> Result<(), Error> {
     let token = get_osu_token(&client).await?;
 
     let response: serde_json::Value = client
-        .get(format!(
-            "https://osu.ppy.sh/api/v2/rankings/osu/global?&filter=all"
-        ))
+        .get("https://osu.ppy.sh/api/v2/rankings/osu/global?&filter=all")
         .header(USER_AGENT, "patchbot_discord")
         .header("Authorization", format!("Bearer {}", token))
         .header("Accept", "application/json")
