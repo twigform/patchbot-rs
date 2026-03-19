@@ -1,8 +1,8 @@
 use super::{format_num, get_osu_token};
 use crate::{Context, Error};
-use image_charts::ImageCharts;
+use quickchart_rs::QuickchartClient;
 use reqwest::header::USER_AGENT;
-use serenity::{builder::CreateEmbed, json::from_value};
+use serenity::builder::CreateEmbed;
 
 #[poise::command(prefix_command, category = "osu!")]
 pub async fn osu(
@@ -336,22 +336,68 @@ pub async fn hgraph(
         .json()
         .await?;
 
-    let rank_history: Vec<i32> = from_value(response["rank_history"]["data"].clone())?;
-    let username: String = from_value(response["username"].clone())?;
-    let uid: u64 = from_value(response["id"].clone())?;
+    let username = response["username"].as_str().unwrap_or("no user found :(");
+    let uid = response["id"].as_u64().unwrap_or(0);
 
-    let data_string: String = rank_history
-        .iter()
-        .rev()
-        .map(|r| r.to_string())
-        .collect::<Vec<String>>()
-        .join(",");
+    if uid == 0 {
+        ctx.send(poise::CreateReply::default().content("osu! user not found... :("))
+            .await?;
+        return Ok(());
+    }
 
-    let chart_url = ImageCharts::new()
-        .cht("lc")
-        .chd(format!("a:{}", data_string))
-        .chs("1200x700")
-        .to_url();
+    let rank_history: Vec<i64> = response["rank_history"]["data"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|value| value.as_i64())
+                .filter(|rank| *rank > 0)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    if rank_history.is_empty() {
+        ctx.send(
+            poise::CreateReply::default().content("no ranked history found for this user... :("),
+        )
+        .await?;
+        return Ok(());
+    }
+
+    let chart_config = serde_json::json!({
+        "type": "line",
+        "backgroundColor": "#2a2227",
+        "data": {
+            "labels": rank_history.iter().enumerate().map(|(i, _)| i + 1).collect::<Vec<_>>(),
+            "datasets": [{
+                "data": rank_history,
+                "label": username,
+                "pointRadius": 0,
+                "borderWidth": 4,
+                "borderColor": "#ff66aa",
+                "tension": 0.2
+            }]
+        },
+        "options": {
+
+            "scales": {
+                "x": { "display": false },
+                "y": {
+                    "reverse": true,
+                    "grace": "10%"
+                }
+            }
+        }
+    })
+    .to_string();
+
+    let chart_url = QuickchartClient::new()
+        .width(700)
+        .height(400)
+        .background_color("#2a2227".to_string())
+        .version("4".to_string())
+        .chart(chart_config)
+        .get_short_url()
+        .await?;
 
     let embed = CreateEmbed::new()
         .title(format!(
@@ -359,7 +405,7 @@ pub async fn hgraph(
             username
         ))
         .url(format!("https://osu.ppy.sh/users/{}", uid))
-        .image(chart_url)
+        .image(&chart_url)
         .color(0xFF66AA);
 
     ctx.send(poise::CreateReply::default().embed(embed)).await?;
