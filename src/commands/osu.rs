@@ -336,15 +336,21 @@ pub async fn hgraph(
         .json()
         .await?;
 
-    let rank_history: Vec<i32> = from_value(response["rank_history"]["data"].clone()).unwrap();
-    let username: String = from_value(response["username"].clone()).unwrap();
-    let uid: u64 = from_value(response["id"].clone()).unwrap();
+    let rank_history: Vec<i32> = from_value(response["rank_history"]["data"].clone())?;
+    let username: String = from_value(response["username"].clone())?;
+    let uid: u64 = from_value(response["id"].clone())?;
 
-    let thingy: Vec<String> = rank_history.iter().map(|r| r.to_string()).collect();
+    let data_string: String = rank_history
+        .iter()
+        .rev()
+        .map(|r| r.to_string())
+        .collect::<Vec<String>>()
+        .join(",");
+
     let chart_url = ImageCharts::new()
-        .cht("ls")
-        .chd(format!("a:{}", thingy.join(",")))
-        .chs("500x700")
+        .cht("lc")
+        .chd(format!("a:{}", data_string))
+        .chs("1200x700")
         .to_url();
 
     let embed = CreateEmbed::new()
