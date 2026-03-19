@@ -10,7 +10,7 @@ mod utility;
 
 pub use general::{cat, consequence, ping};
 pub use gifs::rgif;
-pub use osu::{lb, osu, osur};
+pub use osu::{hgraph, lb, osu, osur};
 pub use utility::{help, shutdown};
 
 static OSU_TOKEN: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));

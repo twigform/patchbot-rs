@@ -1,7 +1,8 @@
 use super::{format_num, get_osu_token};
 use crate::{Context, Error};
+use image_charts::ImageCharts;
 use reqwest::header::USER_AGENT;
-use serenity::builder::CreateEmbed;
+use serenity::{builder::CreateEmbed, json::from_value};
 
 #[poise::command(prefix_command, category = "osu!")]
 pub async fn osu(
@@ -309,6 +310,57 @@ pub async fn lb(ctx: Context<'_>) -> Result<(), Error> {
             false,
         );
     }
+
+    ctx.send(poise::CreateReply::default().embed(embed)).await?;
+    Ok(())
+}
+
+#[poise::command(prefix_command, category = "osu!")]
+pub async fn hgraph(
+    ctx: Context<'_>,
+    #[description = "osu! user to grab ranked history for"] o_user: String,
+) -> Result<(), Error> {
+    ctx.channel_id().broadcast_typing(&ctx.http()).await?;
+
+    let client = reqwest::Client::new();
+
+    let token = get_osu_token(&client).await?;
+
+    let response: serde_json::Value = client
+        .get(format!("https://osu.ppy.sh/api/v2/users/{}/osu", o_user))
+        .header(USER_AGENT, "patchbot_discord")
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Accept", "application/json")
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    let rank_history: Vec<i32> = from_value(response["rank_history"]["data"].clone())?;
+    let username: String = from_value(response["username"].clone())?;
+    let uid: u64 = from_value(response["id"].clone())?;
+
+    let data_string: String = rank_history
+        .iter()
+        .rev()
+        .map(|r| r.to_string())
+        .collect::<Vec<String>>()
+        .join(",");
+
+    let chart_url = ImageCharts::new()
+        .cht("lc")
+        .chd(format!("a:{}", data_string))
+        .chs("1200x700")
+        .to_url();
+
+    let embed = CreateEmbed::new()
+        .title(format!(
+            "<:osu:1482134509729349812> rank history graph for {}",
+            username
+        ))
+        .url(format!("https://osu.ppy.sh/users/{}", uid))
+        .image(chart_url)
+        .color(0xFF66AA);
 
     ctx.send(poise::CreateReply::default().embed(embed)).await?;
     Ok(())
