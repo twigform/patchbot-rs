@@ -408,7 +408,10 @@ pub async fn hgraph(
         });
     }
 
-    let max_len = all_users
+    let mut sorted_users = all_users.iter().collect::<Vec<_>>();
+    sorted_users.sort_by_key(|u| *u.rank_history.last().unwrap());
+
+    let max_len = sorted_users
         .iter()
         .map(|u| u.rank_history.len())
         .max()
@@ -425,7 +428,7 @@ pub async fn hgraph(
         })
         .collect();
 
-    let datasets: Vec<serde_json::Value> = all_users
+    let datasets: Vec<serde_json::Value> = sorted_users
         .iter()
         .enumerate()
         .map(|(i, u)| {
@@ -491,7 +494,7 @@ pub async fn hgraph(
         .get_short_url()
         .await?;
 
-    let description = all_users
+    let description = sorted_users
         .iter()
         .enumerate()
         .map(|(_i, u)| {
@@ -510,7 +513,7 @@ pub async fn hgraph(
             };
             let emoji = c_emojis[_i % c_emojis.len()];
             format!(
-                "{} **[{}](https://osu.ppy.sh/users/{})** • {} ({} → {})",
+                "{} **[{}](https://osu.ppy.sh/users/{})** • {} \n> ({} **→** {})\n",
                 emoji,
                 u.username,
                 u.uid,
