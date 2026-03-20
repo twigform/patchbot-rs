@@ -1,4 +1,5 @@
 use crate::{Context, Error};
+use poise::serenity_prelude as serenity;
 use reqwest::header::USER_AGENT;
 
 #[poise::command(prefix_command)]
@@ -47,3 +48,17 @@ pub async fn consequence(
     .await?;
     Ok(())
 }
+
+// #[poise::command(prefix_command)]
+// pub async fn status(
+//     ctx: Context<'_>,
+//     #[description = "status to set"] o_user: String,
+// ) -> Result<(), Error> {
+//     ctx.set_presence(
+//         Some(serenity::ActivityData::custom("Running >help!")),
+//         serenity::OnlineStatus::Online,
+//     );
+//     let response = "pawng";
+//     ctx.reply(response).await?;
+//     Ok(())
+// }

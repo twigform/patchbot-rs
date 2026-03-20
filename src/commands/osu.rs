@@ -318,63 +318,135 @@ pub async fn lb(ctx: Context<'_>) -> Result<(), Error> {
 #[poise::command(prefix_command, category = "osu!")]
 pub async fn hgraph(
     ctx: Context<'_>,
-    #[description = "osu! user to grab ranked history for"] o_user: String,
+    #[description = "osu! user(s) to grab ranked history for"]
+    #[rest]
+    users: String,
 ) -> Result<(), Error> {
     ctx.channel_id().broadcast_typing(&ctx.http()).await?;
 
-    let client = reqwest::Client::new();
+    let o_users: Vec<&str> = users.split_whitespace().take(5).collect();
 
-    let token = get_osu_token(&client).await?;
-
-    let response: serde_json::Value = client
-        .get(format!("https://osu.ppy.sh/api/v2/users/{}/osu", o_user))
-        .header(USER_AGENT, "patchbot_discord")
-        .header("Authorization", format!("Bearer {}", token))
-        .header("Accept", "application/json")
-        .send()
-        .await?
-        .json()
-        .await?;
-
-    let username = response["username"].as_str().unwrap_or("no user found :(");
-    let uid = response["id"].as_u64().unwrap_or(0);
-
-    if uid == 0 {
-        ctx.send(poise::CreateReply::default().content("osu! user not found... :("))
+    if o_users.is_empty() {
+        ctx.send(poise::CreateReply::default().content("please provide at least one user :("))
             .await?;
         return Ok(());
     }
 
-    let rank_history: Vec<i64> = response["rank_history"]["data"]
-        .as_array()
-        .map(|arr| {
-            let all: Vec<i64> = arr
-                .iter()
-                .filter_map(|value| value.as_i64())
-                .filter(|rank| *rank > 0)
-                .collect();
-            all.into_iter().rev().take(7).rev().collect()
-        })
-        .unwrap_or_default();
-
-    if rank_history.is_empty() {
-        ctx.send(
-            poise::CreateReply::default().content("no ranked history found for this user... :("),
-        )
-        .await?;
-        return Ok(());
+    struct UserData {
+        username: String,
+        rank_history: Vec<i64>,
     }
 
-    let labels: Vec<String> = (0..rank_history.len())
+    let mut all_users: Vec<UserData> = Vec::new();
+
+    let client = reqwest::Client::new();
+    let token = get_osu_token(&client).await?;
+
+    let colors = ["#ff66aa", "#66aaff", "#66ffaa", "#ffaa66", "#aa66ff"];
+
+    let c_emojis = [
+        "<:circlePink:1484583245348737217>",
+        "<:circleBlue:1484583241255092294>",
+        "<:circleGreen:1484583243130081432>",
+        "<:circleOrange:1484583244132515900>",
+        "<:circlePurple:1484583246791573684>",
+    ];
+
+    for o_user in o_users {
+        let response: serde_json::Value = client
+            .get(format!("https://osu.ppy.sh/api/v2/users/{}/osu", o_user))
+            .header(USER_AGENT, "patchbot_discord")
+            .header("Authorization", format!("Bearer {}", token))
+            .header("Accept", "application/json")
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        let username = response["username"]
+            .as_str()
+            .unwrap_or("unknown")
+            .to_string();
+
+        let uid = response["id"].as_u64().unwrap_or(0);
+
+        if uid == 0 {
+            ctx.send(
+                poise::CreateReply::default()
+                    .content(format!("osu! user {} not found... :(", o_user)),
+            )
+            .await?;
+            return Ok(());
+        }
+
+        let rank_history: Vec<i64> = response["rank_history"]["data"]
+            .as_array()
+            .map(|arr| {
+                let all: Vec<i64> = arr
+                    .iter()
+                    .filter_map(|v| v.as_i64())
+                    .filter(|r| *r > 0)
+                    .collect();
+                all.into_iter().rev().take(7).rev().collect()
+            })
+            .unwrap_or_default();
+
+        if rank_history.is_empty() {
+            ctx.send(
+                poise::CreateReply::default()
+                    .content(format!("No rank history found for `{}`... :(", username)),
+            )
+            .await?;
+            return Ok(());
+        }
+
+        all_users.push(UserData {
+            username,
+            rank_history,
+        });
+    }
+
+    let max_len = all_users
+        .iter()
+        .map(|u| u.rank_history.len())
+        .max()
+        .unwrap_or(1);
+
+    let labels: Vec<String> = (0..max_len)
         .map(|i| {
-            let days_ago = rank_history.len() - 1 - i;
-            if days_ago == 0 {
-                "now".to_string()
-            } else if days_ago == 1 {
-                "1 day ago".to_string()
-            } else {
-                format!("{} days ago", days_ago)
+            let days_ago = max_len - 1 - i;
+            match days_ago {
+                0 => "now".to_string(),
+                1 => "1 day ago".to_string(),
+                n => format!("{} days ago", n),
             }
+        })
+        .collect();
+
+    let datasets: Vec<serde_json::Value> = all_users
+        .iter()
+        .enumerate()
+        .map(|(i, u)| {
+            let color = colors[i % colors.len()];
+            serde_json::json!({
+                "data": u.rank_history,
+                "label": u.username,
+                "pointStyle": "circle",
+                "pointBackgroundColor": color,
+                "pointBorderWidth": 0,
+                "pointRadius": 4,
+                "borderWidth": 4,
+                "borderColor": color,
+                "fill": {
+                    "target": "start",
+                    "above": format!("rgba({},{},{},0.15)",
+                        i64::from_str_radix(&color[1..3], 16).unwrap_or(0),
+                        i64::from_str_radix(&color[3..5], 16).unwrap_or(0),
+                        i64::from_str_radix(&color[5..7], 16).unwrap_or(0),
+                    )
+                },
+                "tension": 0.15
+            })
         })
         .collect();
 
@@ -383,55 +455,25 @@ pub async fn hgraph(
         "backgroundColor": "#2a2227",
         "data": {
             "labels": labels,
-            "datasets": [{
-                "data": rank_history,
-                "label": username,
-                "pointStyle": "circle",
-                "pointBackgroundColor": "#ff66aa",
-                "pointBorderWidth": 0,
-                "pointRadius": 4,
-                "borderWidth": 4,
-                "borderColor": "#ff66aa",
-                "fill": {
-                    "target": "start", "above": "rgba(255, 102, 170, 0.15)" },
-                "tension": 0.2
-            }]
+            "datasets": datasets
         },
         "options": {
-            "layout": {
-                "padding": 20,
-            },
+            "layout": { "padding": 20 },
             "plugins": {
-                "legend": {
-                    "labels": {
-                        "usePointStyle": true
-                    }
-                },
-                "datalabels": {
-                    "display": false,
-                    "color": "#cb9cb1",
-                    "align": "top",
-                    "anchor": "center",
-                    "font": {
-                        "size": 12,
-                        "weight": "bold"
-                    },
-                    "formatter": "(value) => value.toLocaleString()"
-                }
+                "legend": { "labels": { "usePointStyle": true } },
+                "datalabels": { "display": false }
             },
             "scales": {
                 "x": {
                     "display": true,
-                    "grid": {
-                        "color": "#382e32"
-                    }
+                    "grid": { "color": "#382e32" },
+                    "ticks": { "color": "#e0b8ca" }
                 },
                 "y": {
                     "reverse": true,
                     "grace": "10%",
-                    "grid": {
-                        "display": false
-                    }
+                    "grid": { "display": false },
+                    "ticks": { "color": "#e0b8ca" }
                 }
             }
         }
@@ -447,35 +489,52 @@ pub async fn hgraph(
         .get_short_url()
         .await?;
 
-    let rank_1 = rank_history[0];
-    let rank_last = *rank_history.last().unwrap();
-    let diff = rank_1 - rank_last;
+    let description = all_users
+        .iter()
+        .enumerate()
+        .map(|(_i, u)| {
+            let rank_1 = u.rank_history[0];
+            let rank_last = *u.rank_history.last().unwrap();
+            let diff = rank_1 - rank_last;
+            let change = if diff > 0 {
+                format!("<:up:1484520685140447313> {}", format_num(diff as u64))
+            } else if diff < 0 {
+                format!(
+                    "<:down:1484520683924095017> {}",
+                    format_num(diff.unsigned_abs())
+                )
+            } else {
+                "<:none:1484585142872965272> No change".to_string()
+            };
+            let emoji = c_emojis[_i % c_emojis.len()];
+            format!(
+                "{} **{}** • {} ({} → {})",
+                emoji,
+                u.username,
+                change,
+                format_num(rank_1 as u64),
+                format_num(rank_last as u64)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
 
-    let total_change = if diff > 0 {
+    let title = if all_users.len() == 1 {
         format!(
-            "Diff: **↑** {} ({} **→** {})",
-            format_num(diff as u64),
-            format_num(rank_1 as u64),
-            format_num(rank_last as u64)
-        )
-    } else if diff < 0 {
-        format!(
-            "Diff: **↓** {} ({} **→** {})",
-            format_num(diff.unsigned_abs()),
-            format_num(rank_1 as u64),
-            format_num(rank_last as u64)
+            "<:osu:1482134509729349812> {}'s rank history",
+            all_users[0].username
         )
     } else {
-        format!("No change! ({})", format_num(rank_1 as u64))
+        let names: Vec<&str> = all_users.iter().map(|u| u.username.as_str()).collect();
+        format!(
+            "<:osu:1482134509729349812> {} rank comparison",
+            names.join(", ")
+        )
     };
 
     let embed = CreateEmbed::new()
-        .title(format!(
-            "<:osu:1482134509729349812> {}'s rank history",
-            username
-        ))
-        .description(total_change)
-        .url(format!("https://osu.ppy.sh/users/{}", uid))
+        .title(title)
+        .description(description)
         .image(&chart_url)
         .color(0xFF66AA);
 
