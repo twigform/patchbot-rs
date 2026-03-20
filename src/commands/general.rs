@@ -49,16 +49,19 @@ pub async fn consequence(
     Ok(())
 }
 
-// #[poise::command(prefix_command)]
-// pub async fn status(
-//     ctx: Context<'_>,
-//     #[description = "status to set"] o_user: String,
-// ) -> Result<(), Error> {
-//     ctx.set_presence(
-//         Some(serenity::ActivityData::custom("Running >help!")),
-//         serenity::OnlineStatus::Online,
-//     );
-//     let response = "pawng";
-//     ctx.reply(response).await?;
-//     Ok(())
-// }
+#[poise::command(prefix_command)]
+pub async fn status(
+    ctx: Context<'_>,
+    #[description = "status to set"]
+    #[rest]
+    status: String,
+) -> Result<(), Error> {
+    ctx.serenity_context().set_presence(
+        Some(serenity::ActivityData::custom(format!("{}", status))),
+        serenity::OnlineStatus::Online,
+    );
+
+    let response = format!("Status set to '{}'", status);
+    ctx.reply(response).await?;
+    Ok(())
+}

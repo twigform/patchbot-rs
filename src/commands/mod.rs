@@ -8,7 +8,7 @@ mod gifs;
 mod osu;
 mod utility;
 
-pub use general::{cat, consequence, ping};
+pub use general::{cat, consequence, ping, status};
 pub use gifs::rgif;
 pub use osu::{hgraph, lb, osu, osur};
 pub use utility::{help, shutdown};

@@ -29,6 +29,7 @@ async fn main() {
                 commands::consequence(),
                 commands::lb(),
                 commands::hgraph(),
+                commands::status(),
             ],
 
             prefix_options: poise::PrefixFrameworkOptions {
