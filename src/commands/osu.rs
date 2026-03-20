@@ -348,10 +348,12 @@ pub async fn hgraph(
     let rank_history: Vec<i64> = response["rank_history"]["data"]
         .as_array()
         .map(|arr| {
-            arr.iter()
+            let all: Vec<i64> = arr
+                .iter()
                 .filter_map(|value| value.as_i64())
                 .filter(|rank| *rank > 0)
-                .collect()
+                .collect();
+            all.into_iter().rev().take(7).rev().collect()
         })
         .unwrap_or_default();
 
@@ -363,27 +365,73 @@ pub async fn hgraph(
         return Ok(());
     }
 
+    let labels: Vec<String> = (0..rank_history.len())
+        .map(|i| {
+            let days_ago = rank_history.len() - 1 - i;
+            if days_ago == 0 {
+                "now".to_string()
+            } else if days_ago == 1 {
+                "1 day ago".to_string()
+            } else {
+                format!("{} days ago", days_ago)
+            }
+        })
+        .collect();
+
     let chart_config = serde_json::json!({
         "type": "line",
         "backgroundColor": "#2a2227",
         "data": {
-            "labels": rank_history.iter().enumerate().map(|(i, _)| i + 1).collect::<Vec<_>>(),
+            "labels": labels,
             "datasets": [{
                 "data": rank_history,
                 "label": username,
-                "pointRadius": 0,
+                "pointStyle": "circle",
+                "pointBackgroundColor": "#ff66aa",
+                "pointBorderWidth": 0,
+                "pointRadius": 4,
                 "borderWidth": 4,
                 "borderColor": "#ff66aa",
+                "fill": {
+                    "target": "start", "above": "rgba(255, 102, 170, 0.15)" },
                 "tension": 0.2
             }]
         },
         "options": {
-
+            "layout": {
+                "padding": 20,
+            },
+            "plugins": {
+                "legend": {
+                    "labels": {
+                        "usePointStyle": true
+                    }
+                },
+                "datalabels": {
+                    "display": false,
+                    "color": "#cb9cb1",
+                    "align": "top",
+                    "anchor": "center",
+                    "font": {
+                        "size": 12,
+                        "weight": "bold"
+                    },
+                    "formatter": "(value) => value.toLocaleString()"
+                }
+            },
             "scales": {
-                "x": { "display": false },
+                "x": {
+                    "display": true,
+                    "grid": {
+                        "color": "#382e32"
+                    }
+                },
                 "y": {
                     "reverse": true,
-                    "grace": "10%"
+                    "grace": "10%",
+                    "grid": {
+                        "display": false
+                    }
                 }
             }
         }
@@ -391,19 +439,42 @@ pub async fn hgraph(
     .to_string();
 
     let chart_url = QuickchartClient::new()
-        .width(700)
-        .height(400)
+        .width(800)
+        .height(500)
         .background_color("#2a2227".to_string())
         .version("4".to_string())
         .chart(chart_config)
         .get_short_url()
         .await?;
 
+    let rank_1 = rank_history[0];
+    let rank_last = *rank_history.last().unwrap();
+    let diff = rank_1 - rank_last;
+
+    let total_change = if diff > 0 {
+        format!(
+            "Diff: **↑** {} ({} **→** {})",
+            format_num(diff as u64),
+            format_num(rank_1 as u64),
+            format_num(rank_last as u64)
+        )
+    } else if diff < 0 {
+        format!(
+            "Diff: **↓** {} ({} **→** {})",
+            format_num(diff.unsigned_abs()),
+            format_num(rank_1 as u64),
+            format_num(rank_last as u64)
+        )
+    } else {
+        format!("No change! ({})", format_num(rank_1 as u64))
+    };
+
     let embed = CreateEmbed::new()
         .title(format!(
-            "<:osu:1482134509729349812> rank history graph for {}",
+            "<:osu:1482134509729349812> {}'s rank history",
             username
         ))
+        .description(total_change)
         .url(format!("https://osu.ppy.sh/users/{}", uid))
         .image(&chart_url)
         .color(0xFF66AA);
