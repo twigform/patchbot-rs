@@ -334,6 +334,7 @@ pub async fn hgraph(
 
     struct UserData {
         username: String,
+        uid: u64,
         rank_history: Vec<i64>,
     }
 
@@ -402,6 +403,7 @@ pub async fn hgraph(
 
         all_users.push(UserData {
             username,
+            uid,
             rank_history,
         });
     }
@@ -508,9 +510,10 @@ pub async fn hgraph(
             };
             let emoji = c_emojis[_i % c_emojis.len()];
             format!(
-                "{} **{}** • {} ({} → {})",
+                "{} **[{}](https://osu.ppy.sh/users/{})** • {} ({} → {})",
                 emoji,
                 u.username,
+                u.uid,
                 change,
                 format_num(rank_1 as u64),
                 format_num(rank_last as u64)
