@@ -24,11 +24,7 @@ async fn main() {
                 commands::rgif(),
                 commands::cat(),
                 commands::help(),
-                commands::osu(),
-                commands::osur(),
                 commands::consequence(),
-                commands::lb(),
-                commands::hgraph(),
                 commands::status(),
             ],
 
