@@ -27,6 +27,8 @@ async fn main() {
                 commands::consequence(),
                 commands::status(),
                 commands::rgifword(),
+                commands::wheel(),
+                commands::wheeladd(),
             ],
 
             prefix_options: poise::PrefixFrameworkOptions {
