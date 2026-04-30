@@ -29,9 +29,16 @@
 | Command | Description |
 |---------|-------------|
 | `>help` | Gives a list of commands. (Can also be used for info on a specific command.) |
+| `>shutdown` | owner only, turns off the bot. |
 | `>ping` | pong :) |
 | `>rgif` | Sends a (kind of) random gif. |
 | `>cat` | Random cat. |
 | `>consequence` | Scary... |
+| `>status` | Set Patchbot's status |
+| `>rgifword` | rgif but it sends the word that it used |
+| `>wheel` | gambling |
+| `>wheeladd` | gambling but u add stuff |
+
+
 
 Feel free to PR a command or feature if you'd like!
