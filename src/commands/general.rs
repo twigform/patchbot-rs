@@ -61,7 +61,23 @@ pub async fn status(
         serenity::OnlineStatus::Online,
     );
 
-    let response = format!("Status set to '{}'", status);
+    let response = format!("✔ Status set to '{}'!", status);
+    ctx.reply(response).await?;
+    Ok(())
+}
+
+#[poise::command(prefix_command)]
+pub async fn name(
+    ctx: Context<'_>,
+    #[description = "server nickname to set"]
+    #[rest]
+    nickname: String,
+) -> Result<(), Error> {
+    let guild_id = ctx.guild_id().ok_or("Can only be used in a server :(")?;
+
+    guild_id.edit_nickname(ctx.http(), Some(&nickname)).await?;
+
+    let response = format!("✔ Server name set to '{}'!", nickname);
     ctx.reply(response).await?;
     Ok(())
 }
