@@ -30,6 +30,7 @@ async fn main() {
                 commands::wheel(),
                 commands::wheeladd(),
                 commands::name(),
+                commands::define(),
             ],
 
             prefix_options: poise::PrefixFrameworkOptions {

@@ -5,5 +5,5 @@ mod wheel;
 
 pub use general::{cat, consequence, name, ping, status};
 pub use gifs::{rgif, rgifword};
-pub use utility::{help, shutdown};
+pub use utility::{define, help, shutdown};
 pub use wheel::{wheel, wheeladd};
