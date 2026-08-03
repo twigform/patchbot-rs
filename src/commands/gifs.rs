@@ -1,6 +1,8 @@
 use crate::{Context, Error};
 use reqwest::header::USER_AGENT;
 
+// add a loop for if no gif found later
+
 async fn get_rand_word(client: &reqwest::Client) -> Result<String, Error> {
     let words: Vec<String> = client
         .get("https://random-word-api.herokuapp.com/word")
