@@ -1,15 +1,29 @@
 use crate::{Context, Error};
-use random_word::Lang;
 use reqwest::header::USER_AGENT;
+
+async fn get_rand_word(client: &reqwest::Client) -> Result<String, Error> {
+    let words: Vec<String> = client
+        .get("https://random-word-api.herokuapp.com/word")
+        .header(USER_AGENT, "patchbot_discord")
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    Ok(words
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| "word".to_string()))
+}
 
 #[poise::command(prefix_command)]
 pub async fn rgif(ctx: Context<'_>) -> Result<(), Error> {
     ctx.channel_id().broadcast_typing(&ctx.http()).await?;
-    let word = random_word::get(Lang::En);
-
     let client = reqwest::Client::new();
+    let word = get_rand_word(&client).await?;
+
     let url = format!(
-        "https://api.klipy.com/api/v1/{}/gifs/search?q={}/&per_page=1",
+        "https://api.klipy.com/api/v1/{}/gifs/search?q={}&per_page=1&content_filter=off",
         std::env::var("KLIPY_API").expect("missing klipy key! please make a .env file in the root of this project and add KLIPY_API=KLIPY API KEY HERE to it!"),
         word
     );
@@ -36,9 +50,9 @@ pub async fn rgif(ctx: Context<'_>) -> Result<(), Error> {
 #[poise::command(prefix_command)]
 pub async fn rgifword(ctx: Context<'_>) -> Result<(), Error> {
     ctx.channel_id().broadcast_typing(&ctx.http()).await?;
-    let word = random_word::get(Lang::En);
-
     let client = reqwest::Client::new();
+    let word = get_rand_word(&client).await?;
+
     let url = format!(
         "https://api.klipy.com/api/v1/{}/gifs/search?q={}/&per_page=1",
         std::env::var("KLIPY_API").expect("missing klipy key! please make a .env file in the root of this project and add KLIPY_API=KLIPY API KEY HERE to it!"),
