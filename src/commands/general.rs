@@ -31,6 +31,13 @@ pub async fn ping(ctx: Context<'_>) -> Result<(), Error> {
 }
 
 #[poise::command(prefix_command)]
+pub async fn hi(ctx: Context<'_>) -> Result<(), Error> {
+    let response = "hi";
+    ctx.reply(response).await?;
+    Ok(())
+}
+
+#[poise::command(prefix_command)]
 pub async fn consequence(
     ctx: Context<'_>,
     #[description = "User to punish."] user: serenity::model::user::User,
