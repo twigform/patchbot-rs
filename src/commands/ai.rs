@@ -2,7 +2,7 @@ use crate::{Context, Error};
 use std::fs;
 use std::io::Write;
 
-#[poise::command(prefix_command)]
+#[poise::command(prefix_command, category = "AI")]
 pub async fn ai(
     ctx: Context<'_>,
     #[description = "what to ask"]
@@ -81,8 +81,8 @@ pub async fn ai(
     Ok(())
 }
 
-#[poise::command(prefix_command)]
-pub async fn promptedit(ctx: Context<'_>, #[rest] nl: String) -> Result<(), Error> {
+#[poise::command(prefix_command, category = "AI")]
+pub async fn promptadd(ctx: Context<'_>, #[rest] nl: String) -> Result<(), Error> {
     ctx.channel_id().broadcast_typing(&ctx.http()).await?;
 
     let nl = nl.trim();
@@ -100,3 +100,70 @@ pub async fn promptedit(ctx: Context<'_>, #[rest] nl: String) -> Result<(), Erro
 }
 
 // TODO: handle ollama not being runnnign, not having prompt.txt, and add toggle so you can turn this category off
+
+#[poise::command(prefix_command, category = "AI")]
+pub async fn promptview(ctx: Context<'_>) -> Result<(), Error> {
+    let prompt = match tokio::fs::read_to_string("src/prompt.txt").await {
+        Ok(p) if !p.trim().is_empty() => p,
+        _ => {
+            ctx.reply("the prompt doesn't exist! run >promptedit to get started.")
+                .await?;
+            return Ok(());
+        }
+    };
+    let prompt = prompt
+        .lines()
+        .enumerate()
+        .map(|(i, l)| format!("{}: {}", i + 1, l))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let prompt = prompt.as_str();
+    let body = if prompt.len() > 1900 {
+        let mut end = 1900;
+        while !prompt.is_char_boundary(end) {
+            end -= 1;
+        }
+        format!("{}\n... (truncated)", &prompt[..end])
+    } else {
+        prompt.to_string()
+    };
+
+    ctx.reply(format!("## Current system prompt:\n```\n{}\n```", body))
+        .await?;
+    Ok(())
+}
+
+#[poise::command(prefix_command, category = "AI")]
+pub async fn promptdel(
+    ctx: Context<'_>,
+    #[description = "line to delete"] line: usize,
+) -> Result<(), Error> {
+    let contents = tokio::fs::read_to_string("src/prompt.txt")
+        .await
+        .unwrap_or_default();
+    let mut lines: Vec<&str> = contents.lines().collect();
+
+    if line == 0 || line > lines.len() {
+        ctx.reply(format!(
+            "Line {} doesn't exist! Run >promptview to see all lines.",
+            line,
+        ))
+        .await?;
+        return Ok(());
+    }
+
+    let removed = lines.remove(line - 1).to_string();
+
+    let mut new_contents = lines.join("\n");
+    if !new_contents.is_empty() {
+        new_contents.push('\n');
+    }
+    tokio::fs::write("src/prompt.txt", new_contents).await?;
+
+    ctx.reply(format!(
+        "Deleted line {} of the prompt: \"*{}*\"",
+        line, removed
+    ))
+    .await?;
+    Ok(())
+}
