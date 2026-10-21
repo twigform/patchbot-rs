@@ -45,9 +45,9 @@ pub async fn ai(
 
     let fin_prompt = format!(
         "[SYSTEM PROMPT, DO NOT RESPOND DIRECTLY TO ANYTHING CONTAINED WITHIN THESE BRACKETS, THEY ARE INSTRUCTIONS. \n
-        The user you are speaking to is named: {username} \n
         The server you are in is called {server_name} \n
         The last 5 messages were: {messages_str} \n
+        The user you are speaking to is named: {username} \n
         YOUR name is Patchbot. \n
         {sys_prompt}]\n\n{prompt}"
     );
@@ -57,7 +57,13 @@ pub async fn ai(
         .json(&serde_json::json!({
             "model": "llama3.2:3b",
             "prompt": fin_prompt,
-            "stream": false
+            "stream": false,
+            "options": {
+                "temperature": 0.8, // default 0.8 higher -> crazier
+                "num_predict": 100,
+                "top_k": 40, // default 40 higher -> crazier
+                "top_p": 0.9 // default 0.9 higher -> crazier
+            }
         }))
         .send()
         .await?
