@@ -55,7 +55,7 @@ async fn main() {
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
 
                 ctx.set_presence(
-                    Some(serenity::ActivityData::custom("Running >help!")),
+                    Some(serenity::ActivityData::custom(commands::load_status())),
                     serenity::OnlineStatus::Online,
                 );
 

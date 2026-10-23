@@ -1,6 +1,7 @@
 use crate::{Context, Error};
 use poise::serenity_prelude as serenity;
 use reqwest::header::USER_AGENT;
+use std::fs;
 
 #[poise::command(prefix_command)]
 pub async fn cat(ctx: Context<'_>) -> Result<(), Error> {
@@ -56,6 +57,21 @@ pub async fn consequence(
     Ok(())
 }
 
+const STATUS_FILE: &str = "src/status.txt";
+const DEFAULT_STATUS: &str = "Running >help!";
+
+pub fn load_status() -> String {
+    fs::read_to_string(STATUS_FILE)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| DEFAULT_STATUS.to_string())
+}
+
+fn save_status(status: &str) -> std::io::Result<()> {
+    fs::write(STATUS_FILE, status)
+}
+
 #[poise::command(prefix_command)]
 pub async fn status(
     ctx: Context<'_>,
@@ -67,6 +83,8 @@ pub async fn status(
         Some(serenity::ActivityData::custom(format!("{}", status))),
         serenity::OnlineStatus::Online,
     );
+
+    save_status(&status)?;
 
     let response = format!("✔ Status set to '{}'!", status);
     ctx.reply(response).await?;

@@ -2,3 +2,4 @@
 .env
 src/wheel.txt
 src/prompt.txt
+src/status.txt
